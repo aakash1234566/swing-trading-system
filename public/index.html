@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>SwingGuard | Smart Swing Trading & Risk Analysis System</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lightweight Charts by TradingView -->
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            },
+            darkbg: '#0b1120',
+            darkpanel: '#1e293b',
+            darkborder: '#334155'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#0b1120] text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="border-b border-slate-800 bg-[#0f172a]/95 backdrop-blur sticky top-0 z-50 px-3 sm:px-6 lg:px-8 py-3">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
+      
+      <!-- Top Row on Mobile: Brand Logo + Currency Switcher & Rules -->
+      <div class="flex items-center justify-between gap-3 w-full md:w-auto">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
+            <i class="fa-solid fa-shield-halved text-white text-base"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <h1 class="text-lg font-black tracking-tight bg-gradient-to-r from-white via-slate-200 to-emerald-400 bg-clip-text text-transparent">SwingGuard</h1>
+              <span class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Pro Risk</span>
+            </div>
+            <p class="text-[11px] text-slate-400 hidden sm:block">Disciplined Swing Trading System</p>
+          </div>
+        </div>
+
+        <!-- Currency Switcher & Rules Link -->
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-0.5 flex text-xs">
+            <button id="curr-inr" class="curr-btn px-2.5 py-1 rounded-lg font-bold transition bg-emerald-600 text-white shadow">₹ INR</button>
+            <button id="curr-usd" class="curr-btn px-2.5 py-1 rounded-lg font-bold transition text-slate-400 hover:text-white">$ USD</button>
+          </div>
+          <a href="#playbook" class="text-slate-400 hover:text-emerald-400 transition text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-slate-800 hover:border-emerald-500/30">
+            <i class="fa-solid fa-book-open text-[11px]"></i>
+            <span class="hidden sm:inline">Rules</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Quick Ticker Search Bar -->
+      <form id="search-form" class="flex items-center gap-2 w-full md:w-auto">
+        <div class="relative flex-1 md:w-80">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+          <input 
+            type="text" 
+            id="ticker-input" 
+            placeholder="Search SBI, Tata Motors, Reliance, AAPL..." 
+            class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner"
+            value="SBIN.NS"
+            required
+          />
+        </div>
+        <button 
+          type="submit" 
+          id="search-btn"
+          class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition shadow-lg shadow-emerald-600/25 flex items-center gap-1.5 whitespace-nowrap active:scale-95 shrink-0"
+        >
+          <span id="search-btn-text">Analyze</span>
+          <i class="fa-solid fa-arrow-right text-xs"></i>
+        </button>
+      </form>
+
+    </div>
+
+    <!-- Quick Watchlist Chips (Horizontal Scrollable) -->
+    <div class="max-w-7xl mx-auto mt-2.5 flex items-center gap-2 overflow-x-auto pb-1 text-xs text-slate-400 scrollbar-none">
+      <span class="font-bold text-slate-500 flex items-center gap-1 shrink-0 text-[11px]">
+        <i class="fa-solid fa-fire text-amber-500"></i> Hot Watchlist:
+      </span>
+      <div id="quick-watchlist" class="flex items-center gap-1.5 shrink-0">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 space-y-5">
+
+    <!-- Loading Overlay / Spinner -->
+    <div id="loading-state" class="hidden py-16 flex flex-col items-center justify-center gap-3 text-center">
+      <div class="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+      <p class="text-slate-200 font-bold text-sm">Crunching Live Indicators & Risk Math...</p>
+      <p class="text-xs text-slate-500">Fetching 20/50/200 EMAs, RSI(14), and Swing Support</p>
+    </div>
+
+    <!-- Error Banner -->
+    <div id="error-banner" class="hidden p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs sm:text-sm flex items-start gap-3">
+      <i class="fa-solid fa-triangle-exclamation text-rose-400 mt-0.5 text-base shrink-0"></i>
+      <div class="flex-1 min-w-0">
+        <p class="font-bold text-rose-200" id="error-title">Error analyzing symbol</p>
+        <p class="text-xs text-rose-300/80 mt-0.5" id="error-message">Could not retrieve stock data.</p>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="content-area" class="space-y-5">
+
+      <!-- 1. Automated Market Screener & Top Pick Banner -->
+      <section class="card-glow bg-gradient-to-br from-slate-900 via-[#0e172a] to-slate-900 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 space-y-4">
+        
+        <!-- Screener Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 shrink-0">
+              <i class="fa-solid fa-robot text-base"></i>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="text-sm sm:text-base font-bold text-white truncate">Auto-Scanner: Nifty Top Setups</h3>
+                <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Auto-Select</span>
+              </div>
+              <p class="text-[11px] text-slate-400 truncate">Scans liquid stocks automatically to find Grade A setups</p>
+            </div>
+          </div>
+
+          <!-- Controls: Market Toggle & Scan Button -->
+          <div class="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto shrink-0">
+            <div class="bg-slate-950 p-1 rounded-xl border border-slate-800 flex text-xs">
+              <button id="scan-market-in" class="px-2.5 py-1 rounded-lg font-bold transition bg-emerald-600 text-white shadow text-[11px]">🇮🇳 Nifty 50</button>
+              <button id="scan-market-us" class="px-2.5 py-1 rounded-lg font-bold transition text-slate-400 hover:text-white text-[11px]">🇺🇸 US Tech</button>
+            </div>
+            <button 
+              id="run-scanner-btn" 
+              class="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-lg shadow-emerald-600/20 flex items-center gap-1.5 active:scale-95 shrink-0"
+            >
+              <i class="fa-solid fa-arrows-rotate text-[11px]" id="scanner-spin-icon"></i>
+              <span id="scanner-btn-label">Scan Now</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Featured #1 Top Pick Banner (Responsive & Never Overflows) -->
+        <div id="top-pick-card" class="bg-slate-950/80 border border-emerald-500/30 rounded-xl p-3.5 sm:p-4 space-y-3">
+          
+          <!-- Top Row: Stock Identity & Score -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col items-center justify-center font-bold text-emerald-400 shrink-0">
+                <span class="text-[9px] tracking-wider font-mono">#1</span>
+                <span class="text-[8px] uppercase font-bold text-slate-400">PICK</span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span id="top-pick-symbol" class="text-base sm:text-lg font-extrabold text-white truncate">KOTAKBANK.NS</span>
+                  <span id="top-pick-score" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">93/100 (Grade A)</span>
+                </div>
+                <div id="top-pick-name" class="text-xs text-slate-400 truncate">Kotak Mahindra Bank</div>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
+              <button id="top-pick-load-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow active:scale-95">
+                <i class="fa-solid fa-chart-line text-[11px]"></i>
+                <span>Load Chart</span>
+              </button>
+              <button id="top-pick-groww-btn" class="bg-slate-900 hover:bg-slate-800 border border-emerald-500/40 text-emerald-300 font-bold px-3 py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 active:scale-95">
+                <i class="fa-solid fa-copy text-[11px]"></i>
+                <span>Copy for Groww</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Bottom Row: 4 Metric Cards (Clean & Responsive on Mobile) -->
+          <div id="top-pick-reason" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <!-- Dynamically populated -->
+          </div>
+
+        </div>
+
+        <!-- Collapsible Scan Results List -->
+        <div>
+          <button id="toggle-scanner-table-btn" class="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 font-medium transition py-1">
+            <i class="fa-solid fa-chevron-down text-[10px]" id="scanner-table-chevron"></i>
+            <span>View All Scanned Stocks Ranked by Score (<span id="scan-count-badge">25</span> Stocks)</span>
+          </button>
+
+          <div id="scanner-table-wrapper" class="hidden mt-2.5 overflow-x-auto border border-slate-800 rounded-xl bg-slate-950/60 max-h-72 overflow-y-auto">
+            <table class="w-full text-left text-xs text-slate-300 min-w-[550px]">
+              <thead class="bg-slate-900/90 text-slate-400 uppercase text-[10px] tracking-wider sticky top-0 border-b border-slate-800">
+                <tr>
+                  <th class="py-2.5 px-3">Rank & Stock</th>
+                  <th class="py-2.5 px-3">Price</th>
+                  <th class="py-2.5 px-3">Grade & Score</th>
+                  <th class="py-2.5 px-3">Stop Loss</th>
+                  <th class="py-2.5 px-3">Target 1</th>
+                  <th class="py-2.5 px-3">RSI</th>
+                  <th class="py-2.5 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="scanner-tbody" class="divide-y divide-slate-800/60">
+                <!-- Dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- 2. Active Stock Header Bar -->
+      <section class="card-glow bg-gradient-to-r from-slate-900 to-slate-900/60 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          
+          <!-- Stock Identity & Price -->
+          <div class="flex items-center gap-3.5 min-w-0">
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col items-center justify-center shrink-0">
+              <span id="ticker-badge" class="font-black text-emerald-400 text-sm tracking-wider">SBIN</span>
+              <span id="market-badge" class="text-[8px] text-slate-400 font-bold uppercase">NSE</span>
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h2 id="stock-name" class="text-lg sm:text-xl font-black tracking-tight text-white truncate">State Bank of India</h2>
+                <span id="price-change-badge" class="text-xs font-bold px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
+                  +0.00%
+                </span>
+              </div>
+              <div class="flex items-baseline gap-2 mt-0.5">
+                <span id="current-price" class="text-2xl sm:text-3xl font-black text-white">₹958.60</span>
+                <span class="text-xs text-slate-400 truncate" id="prev-close-text">Prev Close: ₹958.60</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Key Technical Indicators Summary (Responsive Grid) -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950/80 p-2.5 sm:p-3 rounded-xl border border-slate-800/80 text-xs">
+            <div class="text-center px-1">
+              <div class="text-[10px] text-slate-400 font-medium">20 EMA</div>
+              <div id="val-ema20" class="text-xs sm:text-sm font-bold text-cyan-400 mt-0.5">₹940.20</div>
+              <div class="text-[9px] text-slate-500">Short Trend</div>
+            </div>
+            <div class="text-center px-1 border-l border-slate-800">
+              <div class="text-[10px] text-slate-400 font-medium">50 EMA</div>
+              <div id="val-ema50" class="text-xs sm:text-sm font-bold text-amber-400 mt-0.5">₹920.10</div>
+              <div class="text-[9px] text-slate-500">Medium Trend</div>
+            </div>
+            <div class="text-center px-1 border-l border-slate-800">
+              <div class="text-[10px] text-slate-400 font-medium">200 EMA</div>
+              <div id="val-ema200" class="text-xs sm:text-sm font-bold text-purple-400 mt-0.5">₹870.50</div>
+              <div class="text-[9px] text-slate-500">Macro Trend</div>
+            </div>
+            <div class="text-center px-1 border-l border-slate-800">
+              <div class="text-[10px] text-slate-400 font-medium">RSI (14)</div>
+              <div id="val-rsi" class="text-xs sm:text-sm font-bold text-emerald-400 mt-0.5">55.0</div>
+              <div id="val-rsi-label" class="text-[9px] text-slate-500 truncate">Healthy Bull</div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- 3. Main Grid: Left (Analysis & Chart) + Right (Risk Engine & Checklist) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- Left Column: Setup Score & Chart (7 Cols) -->
+        <div class="lg:col-span-7 space-y-5">
+
+          <!-- Setup Score Card -->
+          <div class="card-glow bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl relative overflow-hidden">
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div class="min-w-0">
+                <span class="text-[10px] uppercase tracking-wider font-bold text-slate-400 flex items-center gap-1.5">
+                  <i class="fa-solid fa-radar text-emerald-400"></i> Setup Quality Rating
+                </span>
+                <h3 class="text-sm sm:text-base font-bold text-white mt-0.5 truncate" id="score-grade-title">Grade B: Moderate Setup</h3>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="text-2xl sm:text-3xl font-black" id="score-number-display">
+                  <span class="text-emerald-400" id="score-val">75</span><span class="text-slate-500 text-sm">/100</span>
+                </div>
+                <span id="score-status-badge" class="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  Valid Setup
+                </span>
+              </div>
+            </div>
+
+            <!-- Score Progress Bar -->
+            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden mb-4">
+              <div id="score-progress" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-700" style="width: 75%"></div>
+            </div>
+
+            <!-- 5 Golden Rules Checklist -->
+            <div class="space-y-2 border-t border-slate-800/80 pt-3" id="rules-container">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Candlestick Chart -->
+          <div class="card-glow bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <div>
+                <h3 class="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
+                  <i class="fa-solid fa-chart-candlestick text-emerald-400"></i>
+                  Daily Price Action & EMAs
+                </h3>
+              </div>
+              <!-- Chart Legend -->
+              <div class="flex items-center gap-2.5 text-[10px] flex-wrap">
+                <span class="flex items-center gap-1"><span class="w-2 h-1 bg-cyan-400 rounded-full inline-block"></span> 20 EMA</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-1 bg-amber-400 rounded-full inline-block"></span> 50 EMA</span>
+                <span class="flex items-center gap-1"><span class="w-2 h-1 bg-purple-400 rounded-full inline-block"></span> 200 EMA</span>
+              </div>
+            </div>
+
+            <!-- Chart Container -->
+            <div id="chart-container" class="w-full h-[320px] sm:h-[400px] rounded-xl overflow-hidden bg-slate-950/60 border border-slate-800/60 relative">
+              <!-- Lightweight charts mounts here -->
+            </div>
+
+            <!-- Price Line Indicators Info -->
+            <div class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+              <div class="bg-slate-950/50 p-2 rounded-lg border border-blue-500/30">
+                <span class="text-blue-400 text-[9px] uppercase font-bold block">Entry Trigger</span>
+                <span class="font-bold text-white text-xs truncate block" id="legend-entry">₹958.60</span>
+              </div>
+              <div class="bg-slate-950/50 p-2 rounded-lg border border-rose-500/30">
+                <span class="text-rose-400 text-[9px] uppercase font-bold block">Stop Loss</span>
+                <span class="font-bold text-rose-300 text-xs truncate block" id="legend-stop">₹920.00</span>
+              </div>
+              <div class="bg-slate-950/50 p-2 rounded-lg border border-emerald-500/30">
+                <span class="text-emerald-400 text-[9px] uppercase font-bold block">Target 1 (1:2)</span>
+                <span class="font-bold text-emerald-300 text-xs truncate block" id="legend-target1">₹1,035.80</span>
+              </div>
+              <div class="bg-slate-950/50 p-2 rounded-lg border border-teal-500/30">
+                <span class="text-teal-400 text-[9px] uppercase font-bold block">Target 2 (1:3)</span>
+                <span class="font-bold text-teal-300 text-xs truncate block" id="legend-target2">₹1,074.40</span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Right Column: The Risk Shield & Calculator (5 Cols) -->
+        <div class="lg:col-span-5 space-y-5">
+
+          <!-- Risk Shield Calculator -->
+          <div class="card-glow bg-gradient-to-b from-slate-900 to-[#131b2e] border-2 border-emerald-500/30 rounded-2xl p-4 sm:p-5 shadow-2xl relative">
+            <div class="flex items-center justify-between mb-3.5 pb-2.5 border-b border-slate-800">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-calculator text-emerald-400 text-base"></i>
+                <h3 class="font-bold text-white text-sm sm:text-base">The Risk Shield Calculator</h3>
+              </div>
+              <span class="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                Max Loss Protection
+              </span>
+            </div>
+
+            <!-- Form Inputs -->
+            <div class="space-y-3.5">
+
+              <!-- Account Size Input -->
+              <div>
+                <div class="flex items-center justify-between text-xs text-slate-300 mb-1">
+                  <label for="account-size" class="font-bold">Total Trading Capital</label>
+                  <span class="text-[10px] text-slate-500">Your total account balance</span>
+                </div>
+                <div class="relative">
+                  <span class="currency-symbol absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">₹</span>
+                  <input 
+                    type="number" 
+                    id="account-size" 
+                    class="w-full bg-slate-950 border border-slate-700/80 rounded-xl pl-8 pr-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-emerald-500 transition"
+                    value="50000"
+                    min="100"
+                    step="1000"
+                  />
+                </div>
+              </div>
+
+              <!-- Risk Percentage Selector (1%, 1.5%, 2%) -->
+              <div>
+                <div class="flex items-center justify-between text-xs text-slate-300 mb-1">
+                  <label class="font-bold">Max Risk per Trade</label>
+                  <span class="text-[10px] text-emerald-400 font-bold" id="allowed-risk-dollars">Max Risk: ₹500.00</span>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5">
+                  <button type="button" data-risk="1.0" class="risk-btn active-risk py-1.5 px-2 rounded-xl border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-bold text-xs transition">
+                    1.0% <span class="block text-[9px] font-normal text-slate-400">Safe</span>
+                  </button>
+                  <button type="button" data-risk="1.5" class="risk-btn py-1.5 px-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 font-bold text-xs hover:border-slate-600 transition">
+                    1.5% <span class="block text-[9px] font-normal text-slate-400">Moderate</span>
+                  </button>
+                  <button type="button" data-risk="2.0" class="risk-btn py-1.5 px-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 font-bold text-xs hover:border-slate-600 transition">
+                    2.0% <span class="block text-[9px] font-normal text-slate-400">Aggressive</span>
+                  </button>
+                </div>
+                <input type="hidden" id="risk-percent-val" value="1.0" />
+              </div>
+
+              <!-- Entry & Stop Loss Inputs -->
+              <div class="grid grid-cols-2 gap-2.5 pt-0.5">
+                <div>
+                  <label class="text-[10px] text-slate-400 font-bold block mb-1">Entry Price</label>
+                  <div class="relative">
+                    <span class="currency-symbol absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-bold">₹</span>
+                    <input 
+                      type="number" 
+                      id="input-entry" 
+                      step="0.05" 
+                      class="w-full bg-slate-950 border border-slate-700 rounded-xl pl-6 pr-2 py-1.5 text-xs sm:text-sm font-bold text-white focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label class="text-[10px] text-rose-400 font-bold block mb-1">Stop Loss Price</label>
+                  <div class="relative">
+                    <span class="currency-symbol absolute left-2.5 top-1/2 -translate-y-1/2 text-rose-500/60 text-xs font-bold">₹</span>
+                    <input 
+                      type="number" 
+                      id="input-stop" 
+                      step="0.05" 
+                      class="w-full bg-slate-950 border border-rose-500/40 rounded-xl pl-6 pr-2 py-1.5 text-xs sm:text-sm font-bold text-rose-300 focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Output Results Display Card -->
+              <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 space-y-3 mt-1">
+                
+                <!-- Share Quantity to Buy -->
+                <div class="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-2.5 rounded-xl">
+                  <div>
+                    <span class="text-[10px] uppercase font-extrabold text-emerald-400 tracking-wider block">Quantity to Buy</span>
+                    <span class="text-[11px] text-slate-400">Guaranteed loss limitation</span>
+                  </div>
+                  <div class="text-right">
+                    <span id="output-shares" class="text-2xl sm:text-3xl font-black text-white">13</span>
+                    <span class="text-xs text-slate-400 font-medium"> shares</span>
+                  </div>
+                </div>
+
+                <!-- Math Breakdown -->
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                  <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800/80">
+                    <span class="text-slate-400 block text-[9px]">Capital Required</span>
+                    <span id="output-capital" class="font-bold text-white text-xs sm:text-sm truncate block">₹12,461.80</span>
+                    <span id="output-capital-pct" class="text-[9px] text-slate-500 block truncate">(24.9% of account)</span>
+                  </div>
+                  <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800/80">
+                    <span class="text-slate-400 block text-[9px]">Max Risk if Hit</span>
+                    <span id="output-maxloss" class="font-bold text-rose-400 text-xs sm:text-sm truncate block">₹499.20</span>
+                    <span class="text-[9px] text-slate-500 block truncate">(Stop: -4.0%)</span>
+                  </div>
+                </div>
+
+                <!-- Profit Potential (1:2 and 1:3) -->
+                <div class="border-t border-slate-800/80 pt-2 space-y-1">
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-slate-300 flex items-center gap-1.5 text-[11px]">
+                      <i class="fa-solid fa-bullseye text-emerald-400"></i> Target 1 (1:2):
+                    </span>
+                    <span id="output-target1-profit" class="font-bold text-emerald-400 text-xs">+₹998.40 (+8.0%)</span>
+                  </div>
+                  <div class="flex items-center justify-between text-xs">
+                    <span class="text-slate-300 flex items-center gap-1.5 text-[11px]">
+                      <i class="fa-solid fa-trophy text-teal-400"></i> Target 2 (1:3):
+                    </span>
+                    <span id="output-target2-profit" class="font-bold text-teal-300 text-xs">+₹1,497.60 (+12.0%)</span>
+                  </div>
+                </div>
+
+                <!-- Capital Warning Gauge -->
+                <div id="capital-warning" class="hidden p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
+                  <i class="fa-solid fa-triangle-exclamation text-amber-400 shrink-0"></i>
+                  <span>Warning: Capital required exceeds 50% of account balance.</span>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Pre-Trade Discipline Checklist -->
+          <div class="card-glow bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-bold text-white text-xs sm:text-sm flex items-center gap-2">
+                <i class="fa-solid fa-list-check text-emerald-400"></i>
+                Pre-Trade Checklist
+              </h3>
+              <span id="checklist-counter" class="text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded">0 / 5</span>
+            </div>
+
+            <div class="space-y-1.5 text-xs">
+              <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 cursor-pointer hover:border-slate-700 transition">
+                <input type="checkbox" id="chk-trend" class="chk-item rounded border-slate-700 text-emerald-500 focus:ring-emerald-500">
+                <span class="text-slate-300 text-[11px]">1. Macro Trend: Stock is above 200 EMA</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 cursor-pointer hover:border-slate-700 transition">
+                <input type="checkbox" id="chk-risk" class="chk-item rounded border-slate-700 text-emerald-500 focus:ring-emerald-500">
+                <span class="text-slate-300 text-[11px]">2. Risk Sized: Loss is capped at ≤ 2%</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 cursor-pointer hover:border-slate-700 transition">
+                <input type="checkbox" id="chk-stop" class="chk-item rounded border-slate-700 text-emerald-500 focus:ring-emerald-500">
+                <span class="text-slate-300 text-[11px]">3. Stop-Loss Pre-Set: Order will be placed</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 cursor-pointer hover:border-slate-700 transition">
+                <input type="checkbox" id="chk-rr" class="chk-item rounded border-slate-700 text-emerald-500 focus:ring-emerald-500">
+                <span class="text-slate-300 text-[11px]">4. Reward Ratio: Potential reward is ≥ 2x risk</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 cursor-pointer hover:border-slate-700 transition">
+                <input type="checkbox" id="chk-catalyst" class="chk-item rounded border-slate-700 text-emerald-500 focus:ring-emerald-500">
+                <span class="text-slate-300 text-[11px]">5. Catalyst Check: No major earnings this week</span>
+              </label>
+            </div>
+
+            <!-- Notes & Buttons -->
+            <div class="pt-1 space-y-2">
+              <input 
+                type="text" 
+                id="trade-notes" 
+                placeholder="Optional notes (e.g. 20 EMA bounce, resistance breakout)..." 
+                class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              />
+              <button 
+                id="log-trade-btn" 
+                class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 active:scale-98"
+              >
+                <i class="fa-solid fa-bookmark text-xs"></i>
+                <span>Log Trade to Journal</span>
+              </button>
+              <button 
+                id="copy-groww-calc-btn" 
+                class="w-full bg-slate-800 hover:bg-slate-700 border border-emerald-500/30 text-emerald-300 font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center gap-2 active:scale-98"
+              >
+                <i class="fa-solid fa-copy text-emerald-400 text-xs"></i>
+                <span>📋 Copy Groww GTT Order Details</span>
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- 4. Trade Journal & Expectancy Tracker -->
+      <section class="card-glow bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-3.5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+          <div>
+            <h3 class="font-bold text-white text-sm sm:text-base flex items-center gap-2">
+              <i class="fa-solid fa-book-bookmark text-emerald-400"></i>
+              Swing Trading Journal
+            </h3>
+            <p class="text-xs text-slate-400">Track and review trades to ensure positive expectancy</p>
+          </div>
+          
+          <!-- Journal Summary Badges -->
+          <div class="flex items-center gap-2 text-xs flex-wrap">
+            <div class="bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">
+              <span class="text-slate-400 text-[11px]">Trades: </span>
+              <span id="stat-total-trades" class="font-bold text-white">0</span>
+            </div>
+            <div class="bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">
+              <span class="text-slate-400 text-[11px]">Win Rate: </span>
+              <span id="stat-win-rate" class="font-bold text-emerald-400">0%</span>
+            </div>
+            <div class="bg-slate-950 px-2.5 py-1 rounded-xl border border-slate-800">
+              <span class="text-slate-400 text-[11px]">Net P&L: </span>
+              <span id="stat-net-pnl" class="font-bold text-white">₹0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Journal Table -->
+        <div class="overflow-x-auto border border-slate-800/80 rounded-xl">
+          <table class="w-full text-left text-xs text-slate-300 min-w-[650px]">
+            <thead class="bg-slate-950/80 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="py-2.5 px-3">Date</th>
+                <th class="py-2.5 px-3">Symbol</th>
+                <th class="py-2.5 px-3">Entry</th>
+                <th class="py-2.5 px-3">Stop Loss</th>
+                <th class="py-2.5 px-3">Target 1</th>
+                <th class="py-2.5 px-3">Shares</th>
+                <th class="py-2.5 px-3">Risk</th>
+                <th class="py-2.5 px-3">Status</th>
+                <th class="py-2.5 px-3">Outcome</th>
+                <th class="py-2.5 px-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="journal-tbody" class="divide-y divide-slate-800/60">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 5. Beginner Playbook Section -->
+      <section id="playbook" class="card-glow bg-gradient-to-r from-slate-900 via-slate-900 to-[#121c2e] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl space-y-4">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0">
+            <i class="fa-solid fa-graduation-cap text-xs"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-white text-sm sm:text-base">The Beginner's Swing Trading Playbook</h3>
+            <p class="text-xs text-slate-400">Four essential principles to build consistent side income</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs pt-1">
+          <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+            <div class="text-emerald-400 font-bold flex items-center gap-1.5">
+              <span class="w-4 h-4 rounded-full bg-emerald-500/20 inline-flex items-center justify-center text-[10px]">1</span>
+              Trade With Trend
+            </div>
+            <p class="text-slate-400 text-[11px]">
+              Only buy stocks trading <strong>above the 200 EMA</strong>. Never fight the major trend.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+            <div class="text-emerald-400 font-bold flex items-center gap-1.5">
+              <span class="w-4 h-4 rounded-full bg-emerald-500/20 inline-flex items-center justify-center text-[10px]">2</span>
+              Buy Pullbacks
+            </div>
+            <p class="text-slate-400 text-[11px]">
+              Wait for price to pull back to the <strong>20 EMA or 50 EMA</strong>. Don't chase green candles.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+            <div class="text-emerald-400 font-bold flex items-center gap-1.5">
+              <span class="w-4 h-4 rounded-full bg-emerald-500/20 inline-flex items-center justify-center text-[10px]">3</span>
+              The 1% Risk Law
+            </div>
+            <p class="text-slate-400 text-[11px]">
+              Never risk more than <strong>1% to 2%</strong> of your total capital on any single trade.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+            <div class="text-emerald-400 font-bold flex items-center gap-1.5">
+              <span class="w-4 h-4 rounded-full bg-emerald-500/20 inline-flex items-center justify-center text-[10px]">4</span>
+              Aim for 1:2 R:R
+            </div>
+            <p class="text-slate-400 text-[11px]">
+              Risk ₹1 to make ₹2+. Even with a 45% win rate, you will remain consistently profitable.
+            </p>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- Edit/Close Trade Modal -->
+  <div id="close-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+        <h4 class="font-bold text-white text-sm sm:text-base">Close / Update Trade</h4>
+        <button id="modal-close-btn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <input type="hidden" id="modal-trade-id" />
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block text-slate-400 mb-1">Trade Status</label>
+          <select id="modal-trade-status" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white">
+            <option value="WON">WON (Hit Target)</option>
+            <option value="LOST">LOST (Hit Stop Loss)</option>
+            <option value="BREAKEVEN">BREAKEVEN (Exited at Entry)</option>
+            <option value="OPEN">OPEN (Still active)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Exit Price</label>
+          <input type="number" id="modal-exit-price" step="0.05" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold" placeholder="e.g. 250.00" />
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Closing Notes / Learnings</label>
+          <textarea id="modal-trade-notes" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white text-xs" placeholder="What went well? Did you stick to your plan?"></textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2">
+        <button id="modal-cancel-btn" class="px-4 py-2 rounded-xl border border-slate-800 text-slate-400 hover:text-white text-xs">Cancel</button>
+        <button id="modal-save-btn" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs">Save Update</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Groww GTT Guide Modal -->
+  <div id="groww-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+            <i class="fa-solid fa-clipboard-check text-xs"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-white text-sm sm:text-base">Groww GTT Order Ready</h4>
+            <p class="text-xs text-slate-400">Order details copied to clipboard!</p>
+          </div>
+        </div>
+        <button id="groww-modal-close-btn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-emerald-300 text-[11px] whitespace-pre-wrap select-all max-h-52 overflow-y-auto" id="groww-order-text">
+        </div>
+
+        <div class="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl space-y-1.5 text-slate-300">
+          <div class="font-bold text-emerald-400 text-xs flex items-center gap-1.5">
+            <i class="fa-solid fa-mobile-screen"></i> Groww App में 1 मिनट में कैसे लगाएं:
+          </div>
+          <ol class="list-decimal list-inside space-y-1 text-slate-300 text-[11px]">
+            <li>Groww ऐप खोलें और शेयर सर्च करें।</li>
+            <li><strong>Buy</strong> पर क्लिक करके <strong>Delivery</strong> चुनें और Quantity डालें।</li>
+            <li>शेयर खरीदने के बाद Holdings में जाकर <strong>Sell → GTT Order</strong> चुनें।</li>
+            <li>Stop-Loss ट्रिगर प्राइस और Target प्राइस डालें।</li>
+            <li>Groww अपने आप सब कुछ मैनेज करेगा!</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-1">
+        <button id="groww-modal-ok-btn" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition">
+          Got It, Done!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

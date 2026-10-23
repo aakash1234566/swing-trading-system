@@ -1,0 +1,36 @@
+[
+  {
+    "id": "1792749329849",
+    "date": "2026-10-23",
+    "symbol": "AAPL",
+    "entry": 348.18,
+    "stopLoss": 338.55,
+    "target1": 367.44,
+    "shares": 103,
+    "totalCapital": 35862.54,
+    "maxRisk": 991.89,
+    "currency": "₹",
+    "status": "OPEN",
+    "exitPrice": null,
+    "realizedPnL": null,
+    "notes": "",
+    "checklistCompleted": false
+  },
+  {
+    "id": "1792748670577",
+    "date": "2026-10-23",
+    "symbol": "AAPL",
+    "entry": 348.22,
+    "stopLoss": 338.55,
+    "target1": 367.56,
+    "shares": 5,
+    "totalCapital": 1741.1,
+    "maxRisk": 48.35,
+    "currency": "$",
+    "status": "OPEN",
+    "exitPrice": null,
+    "realizedPnL": null,
+    "notes": "",
+    "checklistCompleted": false
+  }
+]
