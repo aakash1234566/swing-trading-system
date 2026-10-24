@@ -73,7 +73,7 @@
           <input 
             type="text" 
             id="ticker-input" 
-            placeholder="Search SBI, Tata Motors, Reliance, AAPL..." 
+            placeholder="You do not need to search" 
             class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-9 pr-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition shadow-inner"
             value="SBIN.NS"
             required
@@ -135,10 +135,10 @@
             </div>
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
-                <h3 class="text-sm sm:text-base font-bold text-white truncate">Auto-Scanner: Nifty Top Setups</h3>
-                <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Auto-Select</span>
+                <h3 class="text-sm sm:text-base font-bold text-white truncate">Today's order</h3>
+                <span class="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">One decision</span>
               </div>
-              <p class="text-[11px] text-slate-400 truncate">Scans liquid stocks automatically to find Grade A setups</p>
+              <p class="text-[11px] text-slate-400 truncate">Do not search. Invest only in the stock named in this box. If it says do not trade, buy nothing.</p>
             </div>
           </div>
 
@@ -158,50 +158,45 @@
           </div>
         </div>
 
-        <!-- Featured #1 Top Pick Banner (Responsive & Never Overflows) -->
-        <div id="top-pick-card" class="bg-slate-950/80 border border-emerald-500/30 rounded-xl p-3.5 sm:p-4 space-y-3">
-          
-          <!-- Top Row: Stock Identity & Score -->
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
-            <div class="flex items-center gap-3 min-w-0">
-              <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex flex-col items-center justify-center font-bold text-emerald-400 shrink-0">
-                <span class="text-[9px] tracking-wider font-mono">#1</span>
-                <span class="text-[8px] uppercase font-bold text-slate-400">PICK</span>
-              </div>
-              <div class="min-w-0">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span id="top-pick-symbol" class="text-base sm:text-lg font-extrabold text-white truncate">KOTAKBANK.NS</span>
-                  <span id="top-pick-score" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 whitespace-nowrap">93/100 (Grade A)</span>
-                </div>
-                <div id="top-pick-name" class="text-xs text-slate-400 truncate">Kotak Mahindra Bank</div>
-              </div>
-            </div>
+        <div id="market-weather" class="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2.5 text-xs text-slate-300">
+          Checking whether the overall market is safe for a beginner...
+        </div>
 
-            <!-- Action Buttons -->
-            <div class="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
-              <button id="top-pick-load-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow active:scale-95">
-                <i class="fa-solid fa-chart-line text-[11px]"></i>
-                <span>Load Chart</span>
-              </button>
-              <button id="top-pick-groww-btn" class="bg-slate-900 hover:bg-slate-800 border border-emerald-500/40 text-emerald-300 font-bold px-3 py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 active:scale-95">
-                <i class="fa-solid fa-copy text-[11px]"></i>
-                <span>Copy for Groww</span>
-              </button>
+        <div id="top-pick-card" class="bg-slate-950/80 border border-slate-700 rounded-2xl p-4 sm:p-5 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Do only this</p>
+              <h2 id="order-headline" class="text-2xl sm:text-4xl font-black text-white leading-tight mt-1">Reading the market...</h2>
+              <p id="top-pick-name" class="text-sm text-slate-400 mt-1"></p>
+            </div>
+            <div class="shrink-0">
+              <label for="order-capital" class="text-[10px] uppercase font-bold text-slate-500 block">Your money</label>
+              <div class="relative mt-1">
+                <span class="currency-symbol absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">₹</span>
+                <input id="order-capital" type="number" min="100" step="1000" value="50000" class="w-32 sm:w-40 bg-slate-900 border border-slate-700 rounded-xl pl-6 pr-2 py-2 text-sm font-bold text-white focus:outline-none focus:border-emerald-500" />
+              </div>
             </div>
           </div>
 
-          <!-- Bottom Row: 4 Metric Cards (Clean & Responsive on Mobile) -->
-          <div id="top-pick-reason" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-            <!-- Dynamically populated -->
-          </div>
+          <p id="top-pick-advice" class="text-sm text-slate-200 leading-relaxed"></p>
+          <div id="top-pick-reason" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs"></div>
 
+          <button id="top-pick-groww-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold px-3 py-3 rounded-xl text-sm transition">
+            Copy this order
+          </button>
+          <p class="text-[11px] text-slate-500 leading-relaxed">Place this one order and put the stop on the same day. If the card says do not trade, buy nothing. The stop can still lose the amount shown. No scan can promise a profit.</p>
+
+          <span id="top-pick-symbol" class="hidden"></span>
+          <span id="top-pick-score" class="hidden"></span>
+          <span id="top-pick-rank-label" class="hidden"></span>
+          <button id="top-pick-load-btn" type="button" class="hidden"></button>
         </div>
 
         <!-- Collapsible Scan Results List -->
         <div>
           <button id="toggle-scanner-table-btn" class="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 font-medium transition py-1">
             <i class="fa-solid fa-chevron-down text-[10px]" id="scanner-table-chevron"></i>
-            <span>View All Scanned Stocks Ranked by Score (<span id="scan-count-badge">25</span> Stocks)</span>
+            <span>Optional: every stock the scan checked (<span id="scan-count-badge">25</span>)</span>
           </button>
 
           <div id="scanner-table-wrapper" class="hidden mt-2.5 overflow-x-auto border border-slate-800 rounded-xl bg-slate-950/60 max-h-72 overflow-y-auto">
@@ -210,10 +205,10 @@
                 <tr>
                   <th class="py-2.5 px-3">Rank & Stock</th>
                   <th class="py-2.5 px-3">Price</th>
-                  <th class="py-2.5 px-3">Grade & Score</th>
+                  <th class="py-2.5 px-3">Chart score</th>
                   <th class="py-2.5 px-3">Stop Loss</th>
                   <th class="py-2.5 px-3">Target 1</th>
-                  <th class="py-2.5 px-3">RSI</th>
+                  <th class="py-2.5 px-3">Decision</th>
                   <th class="py-2.5 px-3 text-right">Action</th>
                 </tr>
               </thead>
@@ -225,6 +220,8 @@
         </div>
 
       </section>
+
+      <p class="text-[11px] text-slate-500 px-1">Everything below is optional research. You do not need it to follow today's order.</p>
 
       <!-- 2. Active Stock Header Bar -->
       <section class="card-glow bg-gradient-to-r from-slate-900 to-slate-900/60 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl">
@@ -303,11 +300,14 @@
             </div>
 
             <!-- Score Progress Bar -->
-            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden mb-4">
+            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden mb-3">
               <div id="score-progress" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2 rounded-full transition-all duration-700" style="width: 75%"></div>
             </div>
 
-            <!-- 5 Golden Rules Checklist -->
+            <div id="action-banner" class="mb-3 rounded-xl border px-3 py-2.5 text-xs"></div>
+            <div id="scenario-strip" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-xs"></div>
+
+            <!-- Rules Checklist -->
             <div class="space-y-2 border-t border-slate-800/80 pt-3" id="rules-container">
               <!-- Dynamically populated -->
             </div>
@@ -402,18 +402,21 @@
                   <label class="font-bold">Max Risk per Trade</label>
                   <span class="text-[10px] text-emerald-400 font-bold" id="allowed-risk-dollars">Max Risk: ₹500.00</span>
                 </div>
-                <div class="grid grid-cols-3 gap-1.5">
-                  <button type="button" data-risk="1.0" class="risk-btn active-risk py-1.5 px-2 rounded-xl border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-bold text-xs transition">
-                    1.0% <span class="block text-[9px] font-normal text-slate-400">Safe</span>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  <button type="button" data-risk="0.5" class="risk-btn active-risk py-1.5 px-2 rounded-xl border border-emerald-500/50 bg-emerald-500/10 text-emerald-400 font-bold text-xs transition">
+                    0.5% <span class="block text-[9px] font-normal text-slate-400">Beginner</span>
+                  </button>
+                  <button type="button" data-risk="1.0" class="risk-btn py-1.5 px-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 font-bold text-xs hover:border-slate-600 transition">
+                    1.0% <span class="block text-[9px] font-normal text-slate-400">Careful</span>
                   </button>
                   <button type="button" data-risk="1.5" class="risk-btn py-1.5 px-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 font-bold text-xs hover:border-slate-600 transition">
                     1.5% <span class="block text-[9px] font-normal text-slate-400">Moderate</span>
                   </button>
                   <button type="button" data-risk="2.0" class="risk-btn py-1.5 px-2 rounded-xl border border-slate-700 bg-slate-800 text-slate-300 font-bold text-xs hover:border-slate-600 transition">
-                    2.0% <span class="block text-[9px] font-normal text-slate-400">Aggressive</span>
+                    2.0% <span class="block text-[9px] font-normal text-slate-400">Max</span>
                   </button>
                 </div>
-                <input type="hidden" id="risk-percent-val" value="1.0" />
+                <input type="hidden" id="risk-percent-val" value="0.5" />
               </div>
 
               <!-- Entry & Stop Loss Inputs -->
@@ -491,9 +494,9 @@
                 </div>
 
                 <!-- Capital Warning Gauge -->
-                <div id="capital-warning" class="hidden p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
-                  <i class="fa-solid fa-triangle-exclamation text-amber-400 shrink-0"></i>
-                  <span>Warning: Capital required exceeds 50% of account balance.</span>
+                <div id="capital-warning" class="hidden p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-2">
+                  <i class="fa-solid fa-triangle-exclamation text-amber-400 shrink-0 mt-0.5"></i>
+                  <span id="capital-warning-text">This trade is capped so one stock never uses more than 15% of your money.</span>
                 </div>
 
               </div>
@@ -508,7 +511,7 @@
                 <i class="fa-solid fa-list-check text-emerald-400"></i>
                 Pre-Trade Checklist
               </h3>
-              <span id="checklist-counter" class="text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded">0 / 5</span>
+              <span id="checklist-counter" class="text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded">0 / 7</span>
             </div>
 
             <div class="space-y-1.5 text-xs">
@@ -518,7 +521,7 @@
               </label>
               <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 cursor-pointer hover:border-slate-700 transition">
                 <input type="checkbox" id="chk-risk" class="chk-item rounded border-slate-700 text-emerald-500 focus:ring-emerald-500">
-                <span class="text-slate-300 text-[11px]">2. Risk Sized: Loss is capped at ≤ 2%</span>
+                <span class="text-slate-300 text-[11px]">2. Risk Sized: Loss stays inside the % you selected</span>
               </label>
               <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 cursor-pointer hover:border-slate-700 transition">
                 <input type="checkbox" id="chk-stop" class="chk-item rounded border-slate-700 text-emerald-500 focus:ring-emerald-500">
@@ -531,6 +534,14 @@
               <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 cursor-pointer hover:border-slate-700 transition">
                 <input type="checkbox" id="chk-catalyst" class="chk-item rounded border-slate-700 text-emerald-500 focus:ring-emerald-500">
                 <span class="text-slate-300 text-[11px]">5. Catalyst Check: No major earnings this week</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 cursor-pointer hover:border-slate-700 transition">
+                <input type="checkbox" id="chk-market" class="chk-item rounded border-slate-700 text-emerald-500 focus:ring-emerald-500">
+                <span class="text-slate-300 text-[11px]">6. Market Weather: Index is not in a downtrend</span>
+              </label>
+              <label class="flex items-center gap-2 p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 cursor-pointer hover:border-slate-700 transition">
+                <input type="checkbox" id="chk-size" class="chk-item rounded border-slate-700 text-emerald-500 focus:ring-emerald-500">
+                <span class="text-slate-300 text-[11px]">7. Size Check: This stock uses 15% or less of capital</span>
               </label>
             </div>
 
@@ -624,11 +635,11 @@
           </div>
           <div>
             <h3 class="font-bold text-white text-sm sm:text-base">The Beginner's Swing Trading Playbook</h3>
-            <p class="text-xs text-slate-400">Four essential principles to build consistent side income</p>
+            <p class="text-xs text-slate-400">Small losses, only in a healthy market, are how a beginner stays in the game</p>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs pt-1">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs pt-1">
           <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
             <div class="text-emerald-400 font-bold flex items-center gap-1.5">
               <span class="w-4 h-4 rounded-full bg-emerald-500/20 inline-flex items-center justify-center text-[10px]">1</span>
@@ -652,10 +663,10 @@
           <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
             <div class="text-emerald-400 font-bold flex items-center gap-1.5">
               <span class="w-4 h-4 rounded-full bg-emerald-500/20 inline-flex items-center justify-center text-[10px]">3</span>
-              The 1% Risk Law
+              Start at 0.5% risk
             </div>
             <p class="text-slate-400 text-[11px]">
-              Never risk more than <strong>1% to 2%</strong> of your total capital on any single trade.
+              Start at <strong>0.5%</strong> of your account. Do not go above 2% on one trade.
             </p>
           </div>
 
@@ -665,7 +676,27 @@
               Aim for 1:2 R:R
             </div>
             <p class="text-slate-400 text-[11px]">
-              Risk ₹1 to make ₹2+. Even with a 45% win rate, you will remain consistently profitable.
+              Risk ₹1 to make ₹2+. A 45% win rate can still grow the account if the losers stay small.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+            <div class="text-emerald-400 font-bold flex items-center gap-1.5">
+              <span class="w-4 h-4 rounded-full bg-emerald-500/20 inline-flex items-center justify-center text-[10px]">5</span>
+              Respect the market
+            </div>
+            <p class="text-slate-400 text-[11px]">
+              If Nifty or the S&amp;P 500 is below its 200-day average, do not start a new buy. Cash is a position.
+            </p>
+          </div>
+
+          <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800 space-y-1">
+            <div class="text-emerald-400 font-bold flex items-center gap-1.5">
+              <span class="w-4 h-4 rounded-full bg-emerald-500/20 inline-flex items-center justify-center text-[10px]">6</span>
+              One stock, small slice
+            </div>
+            <p class="text-slate-400 text-[11px]">
+              Never put more than <strong>15%</strong> of your money in one stock, and keep total open risk at or below <strong>2%</strong>.
             </p>
           </div>
         </div>

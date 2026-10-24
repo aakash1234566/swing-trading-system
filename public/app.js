@@ -78,6 +78,7 @@ const topPickSymbol = document.getElementById('top-pick-symbol');
 const topPickName = document.getElementById('top-pick-name');
 const topPickScore = document.getElementById('top-pick-score');
 const topPickReason = document.getElementById('top-pick-reason');
+const topPickAdvice = document.getElementById('top-pick-advice');
 const topPickLoadBtn = document.getElementById('top-pick-load-btn');
 const topPickGrowwBtn = document.getElementById('top-pick-groww-btn');
 const toggleScannerTableBtn = document.getElementById('toggle-scanner-table-btn');
@@ -95,7 +96,14 @@ const growwModalOkBtn = document.getElementById('groww-modal-ok-btn');
 
 let activeScanMarket = 'india';
 let latestScanResults = [];
+let latestScanPayload = null;
 let topRankedStock = null;
+let userChoseSymbol = false;
+let suppressOrderRefresh = false;
+let latestTrades = [];
+const MAX_POSITION_PCT = 15;
+const MAX_OPEN_RISK_PCT = 2;
+const MAX_OPEN_TRADES = 3;
 
 // Initialize App
 document.addEventListener('DOMContentLoaded', () => {
@@ -105,7 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Default to Indian Market (INR ₹) for Groww user
   switchCurrency('₹');
-  analyzeTicker('KOTAKBANK.NS');
+  const orderCapital = document.getElementById('order-capital');
+  if (orderCapital) orderCapital.value = accountSizeInput.value;
   runMarketScanner('india');
 });
 
@@ -113,7 +122,10 @@ function setupEventListeners() {
   searchForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const symbol = tickerInput.value.trim().toUpperCase();
-    if (symbol) analyzeTicker(symbol);
+    if (symbol) {
+      userChoseSymbol = true;
+      analyzeTicker(symbol);
+    }
   });
 
   currUsdBtn.addEventListener('click', () => switchCurrency('$'));
@@ -129,7 +141,17 @@ function setupEventListeners() {
     });
   });
 
-  accountSizeInput.addEventListener('input', recalculateRisk);
+  accountSizeInput.addEventListener('input', () => {
+    const orderCapital = document.getElementById('order-capital');
+    if (orderCapital && orderCapital.value !== accountSizeInput.value) orderCapital.value = accountSizeInput.value;
+    recalculateRisk();
+    if (latestScanPayload) renderScannerUI(latestScanPayload);
+  });
+  document.getElementById('order-capital')?.addEventListener('input', (event) => {
+    accountSizeInput.value = event.target.value;
+    recalculateRisk();
+    if (latestScanPayload) renderScannerUI(latestScanPayload);
+  });
   inputEntry.addEventListener('input', () => {
     recalculateRisk();
     updateChartPriceLines();
@@ -154,6 +176,7 @@ function setupEventListeners() {
 
   // Scanner actions
   scanMarketIn.addEventListener('click', () => {
+    userChoseSymbol = false;
     activeScanMarket = 'india';
     scanMarketIn.className = 'px-3 py-1.5 rounded-lg font-bold transition bg-emerald-600 text-white shadow';
     scanMarketUs.className = 'px-3 py-1.5 rounded-lg font-bold transition text-slate-400 hover:text-white';
@@ -162,6 +185,7 @@ function setupEventListeners() {
   });
 
   scanMarketUs.addEventListener('click', () => {
+    userChoseSymbol = false;
     activeScanMarket = 'us';
     scanMarketUs.className = 'px-3 py-1.5 rounded-lg font-bold transition bg-emerald-600 text-white shadow';
     scanMarketIn.className = 'px-3 py-1.5 rounded-lg font-bold transition text-slate-400 hover:text-white';
@@ -170,6 +194,7 @@ function setupEventListeners() {
   });
 
   runScannerBtn.addEventListener('click', () => {
+    userChoseSymbol = false;
     runMarketScanner(activeScanMarket, true);
   });
 
@@ -240,6 +265,9 @@ function switchCurrency(symbol) {
     }
   }
   recalculateRisk();
+  const orderCapital = document.getElementById('order-capital');
+  if (orderCapital) orderCapital.value = accountSizeInput.value;
+  if (latestScanPayload && !suppressOrderRefresh) renderScannerUI(latestScanPayload);
 }
 
 async function loadWatchlist() {
@@ -259,6 +287,7 @@ async function loadWatchlist() {
       chip.className = 'px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition flex items-center gap-1.5 active:scale-95';
       chip.innerHTML = `<span>${item.symbol}</span> <span class="text-[9px] text-slate-500">${item.market}</span>`;
       chip.addEventListener('click', () => {
+        userChoseSymbol = true;
         tickerInput.value = item.symbol;
         analyzeTicker(item.symbol);
       });
@@ -282,15 +311,13 @@ async function analyzeTicker(symbol) {
     }
 
     currentAnalysis = data;
+    const quotedInRupees = data.symbol.endsWith('.NS') || data.symbol.endsWith('.BO') || data.currency === 'INR';
+    switchCurrency(quotedInRupees ? '₹' : '$');
     renderAnalysisData(data);
     renderChart(data);
     recalculateRisk();
     autoPopulateChecklist(data);
-
-    // Auto-detect currency if ticker is Indian
-    if (symbol.endsWith('.NS') || symbol.endsWith('.BO')) {
-      switchCurrency('₹');
-    }
+    if (userChoseSymbol) showSearchedOrder(data);
 
   } catch (err) {
     showError(err.message);
@@ -394,6 +421,55 @@ function renderAnalysisData(data) {
   document.getElementById('legend-stop').textContent = `${currentCurrency}${suggestedStop.toFixed(2)}`;
   document.getElementById('legend-target1').textContent = `${currentCurrency}${target1.toFixed(2)}`;
   document.getElementById('legend-target2').textContent = `${currentCurrency}${target2.toFixed(2)}`;
+
+  renderActionBanner(data);
+  renderScenarioStrip(data);
+}
+
+function actionTone(action) {
+  if (action === 'SPEND') {
+    return { box: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-100', title: 'text-emerald-300' };
+  }
+  if (action === 'WAIT') {
+    return { box: 'bg-amber-500/10 border-amber-500/30 text-amber-50', title: 'text-amber-300' };
+  }
+  return { box: 'bg-rose-500/10 border-rose-500/30 text-rose-100', title: 'text-rose-300' };
+}
+
+function renderActionBanner(data) {
+  const banner = document.getElementById('action-banner');
+  if (!banner || !data?.setup) return;
+  const tone = actionTone(data.setup.action);
+  banner.className = `mb-3 rounded-xl border px-3 py-2.5 text-xs ${tone.box}`;
+  banner.innerHTML = `
+    <div class="font-bold ${tone.title}">${data.setup.actionLabel || data.setup.action}</div>
+    <p class="mt-1 leading-relaxed text-slate-200">${data.setup.actionReason || ''}</p>
+  `;
+}
+
+function renderScenarioStrip(data) {
+  const strip = document.getElementById('scenario-strip');
+  if (!strip || !data) return;
+  const scenario = data.scenario || {};
+  const rs = scenario.relativeStrength == null
+    ? 'n/a'
+    : `${scenario.relativeStrength >= 0 ? '+' : ''}${scenario.relativeStrength}%`;
+  let marketText = scenario.regimeLabel || 'Unknown';
+  if (data.setup?.action === 'SPEND' && scenario.regime === 'CAUTION') {
+    marketText = 'Mixed market, but this score is strong enough to buy.';
+  }
+  const cells = [
+    ['Market', marketText],
+    ['ADX', data.indicators.adx ?? 'n/a'],
+    ['Daily range', data.indicators.atrPct != null ? `${data.indicators.atrPct}%` : 'n/a'],
+    ['Vs index, 20d', rs]
+  ];
+  strip.innerHTML = cells.map(([label, value]) => `
+    <div class="bg-slate-950/70 border border-slate-800 rounded-lg p-2">
+      <div class="text-[9px] uppercase tracking-wide text-slate-500 font-bold">${label}</div>
+      <div class="text-[11px] text-white font-semibold mt-0.5 leading-snug">${value}</div>
+    </div>
+  `).join('');
 }
 
 // Candlestick Chart Rendering
@@ -515,66 +591,124 @@ function updateChartPriceLines() {
   }
 }
 
+function openTradesForCurrency(currency) {
+  return latestTrades.filter(t => t.status === 'OPEN' && (t.currency || '$') === currency);
+}
+
+function planSpend(price, stop, accountSize, riskPct, currency) {
+  const empty = {
+    shares: 0,
+    capital: 0,
+    maxLoss: 0,
+    target1Profit: 0,
+    target2Profit: 0,
+    capitalPct: 0,
+    note: '',
+    blocked: true
+  };
+  const riskPerShare = price - stop;
+  if (!(price > 0) || !(stop > 0) || riskPerShare <= 0) {
+    return { ...empty, note: 'The stop must sit below the buy price.' };
+  }
+
+  const open = openTradesForCurrency(currency);
+  const openRisk = open.reduce((sum, trade) => sum + (Number(trade.maxRisk) || 0), 0);
+  if (open.length >= MAX_OPEN_TRADES) {
+    return { ...empty, note: 'You already have 3 open trades. Close one before spending on another stock.' };
+  }
+
+  const riskRoom = Math.max(0, (accountSize * MAX_OPEN_RISK_PCT) / 100 - openRisk);
+  if (riskRoom <= 0) {
+    return { ...empty, note: 'Open trades already risk 2% of the account. Wait for one to finish.' };
+  }
+
+  const allowedRisk = Math.min((accountSize * riskPct) / 100, riskRoom);
+  const riskShares = Math.floor(allowedRisk / riskPerShare);
+  const capitalCapShares = Math.floor((accountSize * MAX_POSITION_PCT) / 100 / price);
+  let shares = riskShares;
+  const notes = [];
+  if (riskShares < 1) {
+    shares = 0;
+    notes.push(`Only ${currency}${riskRoom.toFixed(0)} of loss room is left, and one share can lose about ${currency}${riskPerShare.toFixed(0)}. Close an open trade before spending again.`);
+  } else if (shares > capitalCapShares) {
+    shares = capitalCapShares;
+    notes.push(shares < 1
+      ? 'One share costs more than 15% of the account. Use a lower-priced stock.'
+      : 'Quantity was reduced so this one stock uses at most 15% of your money.');
+  }
+
+  const capital = shares * price;
+  return {
+    shares,
+    capital,
+    maxLoss: shares * riskPerShare,
+    target1Profit: shares * riskPerShare * 2,
+    target2Profit: shares * riskPerShare * 3,
+    capitalPct: accountSize > 0 ? (capital / accountSize) * 100 : 0,
+    note: notes.join(' '),
+    blocked: shares < 1
+  };
+}
+
+function formatMoney(currency, value) {
+  return `${currency}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 // The Risk Shield Position Sizing Engine
 function recalculateRisk() {
   const accountSize = Number(accountSizeInput.value) || 0;
-  const riskPct = Number(riskPercentVal.value) || 1.0;
+  const riskPct = Number(riskPercentVal.value) || 0.5;
   const entry = Number(inputEntry.value) || 0;
   const stop = Number(inputStop.value) || 0;
-
-  // Maximum allowed risk in dollars/rupees
   const maxAllowedRisk = (accountSize * riskPct) / 100;
-  allowedRiskDollars.textContent = `Max Allowed Risk: ${currentCurrency}${maxAllowedRisk.toFixed(2)}`;
+  allowedRiskDollars.textContent = `Max loss on this trade: ${currentCurrency}${maxAllowedRisk.toFixed(2)}`;
 
-  if (entry <= 0 || stop <= 0 || entry <= stop) {
-    outputShares.textContent = '0';
-    outputCapital.textContent = `${currentCurrency}0.00`;
-    outputCapitalPct.textContent = '(0% of account)';
-    outputMaxLoss.textContent = `${currentCurrency}0.00`;
-    outputTarget1Profit.textContent = `+${currentCurrency}0.00`;
-    outputTarget2Profit.textContent = `+${currentCurrency}0.00`;
-    return;
+  const plan = planSpend(entry, stop, accountSize, riskPct, currentCurrency);
+  const stopPct = entry > stop && entry > 0 ? ((entry - stop) / entry) * 100 : 0;
+
+  outputShares.textContent = String(plan.shares);
+  outputCapital.textContent = formatMoney(currentCurrency, plan.capital);
+  outputCapitalPct.textContent = `(${plan.capitalPct.toFixed(1)}% of account)`;
+  outputMaxLoss.textContent = formatMoney(currentCurrency, plan.maxLoss);
+  if (outputMaxLoss.nextElementSibling) {
+    outputMaxLoss.nextElementSibling.textContent = `(Stop: -${stopPct.toFixed(1)}%)`;
   }
+  outputTarget1Profit.textContent = `+${formatMoney(currentCurrency, plan.target1Profit)} (+${(stopPct * 2).toFixed(1)}%)`;
+  outputTarget2Profit.textContent = `+${formatMoney(currentCurrency, plan.target2Profit)} (+${(stopPct * 3).toFixed(1)}%)`;
 
-  const riskPerShare = entry - stop;
-  const shares = Math.floor(maxAllowedRisk / riskPerShare);
-  const totalCapitalRequired = shares * entry;
-  const actualMaxRisk = shares * riskPerShare;
-  const capitalPct = accountSize > 0 ? (totalCapitalRequired / accountSize) * 100 : 0;
-
-  const target1Price = entry + (riskPerShare * 2);
-  const target2Price = entry + (riskPerShare * 3);
-  const target1Profit = shares * (riskPerShare * 2);
-  const target2Profit = shares * (riskPerShare * 3);
-
-  // Update outputs
-  outputShares.textContent = shares;
-  outputCapital.textContent = `${currentCurrency}${totalCapitalRequired.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  outputCapitalPct.textContent = `(${capitalPct.toFixed(1)}% of account)`;
-  outputMaxLoss.textContent = `${currentCurrency}${actualMaxRisk.toFixed(2)}`;
-  
-  const stopPct = ((entry - stop) / entry) * 100;
-  outputMaxLoss.nextElementSibling.textContent = `(Stop: -${stopPct.toFixed(1)}%)`;
-
-  outputTarget1Profit.textContent = `+${currentCurrency}${target1Profit.toFixed(2)} (+${(stopPct * 2).toFixed(1)}%)`;
-  outputTarget2Profit.textContent = `+${currentCurrency}${target2Profit.toFixed(2)} (+${(stopPct * 3).toFixed(1)}%)`;
-
-  // Warning if position requires > 50% of account
-  if (capitalPct > 50) {
+  const warningText = document.getElementById('capital-warning-text');
+  if (plan.note) {
     capitalWarning.classList.remove('hidden');
+    if (warningText) warningText.textContent = plan.note;
   } else {
     capitalWarning.classList.add('hidden');
+  }
+
+  const sizeCheck = document.getElementById('chk-size');
+  if (sizeCheck) {
+    sizeCheck.checked = plan.shares > 0 && plan.capitalPct <= MAX_POSITION_PCT + 0.05;
+    updateChecklistProgress();
   }
 }
 
 // Auto-populate checklist rules based on setup analysis
 function autoPopulateChecklist(data) {
-  const isAbove200 = data.indicators.ema200 ? data.currentPrice >= data.indicators.ema200 : true;
+  const isAbove200 = data.indicators.ema200 ? data.currentPrice >= data.indicators.ema200 : false;
+  const marketOk = data.scenario && data.scenario.regime !== 'RISK_OFF' && data.scenario.regime !== 'UNKNOWN';
+  const plan = planSpend(
+    Number(inputEntry.value),
+    Number(inputStop.value),
+    Number(accountSizeInput.value) || 0,
+    Number(riskPercentVal.value) || 0.5,
+    currentCurrency
+  );
   document.getElementById('chk-trend').checked = isAbove200;
-  document.getElementById('chk-risk').checked = true; // Sized by calculator
-  document.getElementById('chk-stop').checked = true; // Stop identified
-  document.getElementById('chk-rr').checked = true; // Target 1:2 verified
-  document.getElementById('chk-catalyst').checked = false; // User must verify no immediate earnings
+  document.getElementById('chk-risk').checked = plan.shares > 0;
+  document.getElementById('chk-stop').checked = data.setup.action !== 'SKIP';
+  document.getElementById('chk-rr').checked = data.setup.action === 'SPEND';
+  document.getElementById('chk-catalyst').checked = false;
+  document.getElementById('chk-market').checked = !!marketOk;
+  document.getElementById('chk-size').checked = plan.shares > 0 && plan.capitalPct <= MAX_POSITION_PCT + 0.05;
 
   updateChecklistProgress();
 }
@@ -596,8 +730,10 @@ async function loadJournal() {
   try {
     const res = await fetch('/api/journal');
     const trades = await res.json();
-    renderJournalTable(trades);
-    renderJournalStats(trades);
+    latestTrades = Array.isArray(trades) ? trades : [];
+    renderJournalTable(latestTrades);
+    renderJournalStats(latestTrades);
+    recalculateRisk();
   } catch (err) {
     console.error('Failed to load trade journal:', err);
   }
@@ -695,9 +831,13 @@ async function handleLogTrade() {
 
   const shares = Number(outputShares.textContent);
   if (shares <= 0) {
-    alert('Invalid position size. Please ensure Entry and Stop-Loss are configured.');
+    alert('There is no safe quantity for this account. Check the stop, or wait until an open trade closes.');
     return;
   }
+
+  const decision = currentAnalysis.setup?.action;
+  if (decision === 'SKIP' && !confirm('This stock is marked Do not buy. Save it only as a practice note?')) return;
+  if (decision === 'WAIT' && !confirm('This setup says wait, not spend. Save it to the journal anyway?')) return;
 
   const entry = Number(inputEntry.value);
   const stop = Number(inputStop.value);
@@ -718,6 +858,8 @@ async function handleLogTrade() {
     totalCapital,
     maxRisk,
     currency: currentCurrency,
+    action: currentAnalysis.setup?.action || '',
+    score: currentAnalysis.setup?.score ?? null,
     notes: tradeNotesInput.value.trim(),
     checklistCompleted: isChecked
   };
@@ -839,37 +981,168 @@ async function runMarketScanner(market = 'india', force = false) {
   }
 }
 
-function renderScannerUI(data) {
-  const results = data.results;
-  scanCountBadge.textContent = results.length;
+function renderMarketWeather(benchmark, counts = {}) {
+  const el = document.getElementById('market-weather');
+  if (!el) return;
+  const regime = benchmark?.regime || 'UNKNOWN';
+  const tone = regime === 'RISK_ON'
+    ? 'border-emerald-500/40 text-emerald-100'
+    : regime === 'CAUTION'
+      ? 'border-amber-500/40 text-amber-50'
+      : 'border-rose-500/40 text-rose-100';
+  const name = benchmark?.shortName || (activeScanMarket === 'india' ? 'Nifty 50' : 'S&P 500');
+  const change = benchmark?.change20 == null ? '' : ` 20-day move ${benchmark.change20}%.`;
+  const spend = counts.spendCount || 0;
+  el.className = `rounded-xl border bg-slate-950/70 px-3 py-2.5 text-xs ${tone}`;
+  el.innerHTML = `
+    <span class="font-bold">${name}: ${benchmark?.label || 'Market check unavailable.'}</span>
+    <span>${change}</span>
+    <span class="block text-slate-400 mt-1">${spend > 0 ? 'One order is ready below.' : 'No order today. Buy nothing.'}</span>
+  `;
+}
 
-  if (results.length === 0) return;
+function cleanSymbol(symbol) {
+  return String(symbol || '').replace('.NS', '').replace('.BO', '');
+}
 
-  // #1 Top Pick
-  topRankedStock = results[0];
-  topPickSymbol.textContent = topRankedStock.symbol;
-  topPickName.textContent = topRankedStock.shortName;
-  topPickScore.textContent = `${topRankedStock.score}/100 (Grade ${topRankedStock.grade})`;
-  
-  const curr = topRankedStock.symbol.endsWith('.NS') ? '₹' : '$';
+function stockCurrency(symbol) {
+  const value = String(symbol || '');
+  return value.endsWith('.NS') || value.endsWith('.BO') ? '₹' : '$';
+}
+
+function chooseReadyTrade(results) {
+  const accountSize = Number(accountSizeInput.value) || 0;
+  const riskPct = Number(riskPercentVal.value) || 0.5;
+  for (const stock of results) {
+    if (stock.action !== 'SPEND') continue;
+    const curr = stockCurrency(stock.symbol);
+    const plan = planSpend(stock.currentPrice, stock.stopLoss, accountSize, riskPct, curr);
+    if (plan.shares > 0) return { stock, plan, curr };
+  }
+  return null;
+}
+
+function showStandAside(message) {
+  document.getElementById('stock-name').textContent = 'No trade today';
+  document.getElementById('ticker-badge').textContent = 'CASH';
+  document.getElementById('market-badge').textContent = 'WAIT';
+  document.getElementById('current-price').textContent = '—';
+  document.getElementById('prev-close-text').textContent = 'Buy nothing';
+  const changeBadge = document.getElementById('price-change-badge');
+  changeBadge.textContent = 'Cash';
+  changeBadge.className = 'text-xs font-bold px-2 py-0.5 rounded-lg border bg-slate-800 text-slate-300 border-slate-700';
+  document.getElementById('score-grade-title').textContent = 'Stay in cash';
+  document.getElementById('score-val').textContent = '—';
+  const banner = document.getElementById('action-banner');
+  if (banner) {
+    banner.className = 'mb-3 rounded-xl border px-3 py-2.5 text-xs bg-rose-500/10 border-rose-500/30 text-rose-100';
+    banner.innerHTML = `<div class="font-bold text-rose-300">Do not trade</div><p class="mt-1 text-slate-200">${message}</p>`;
+  }
+}
+
+function paintTodayOrder(choice, fallbackMessage) {
+  const headline = document.getElementById('order-headline');
+  const growwBtn = document.getElementById('top-pick-groww-btn');
+  topPickCard.classList.remove('border-emerald-500/40', 'border-rose-500/40', 'border-slate-700');
+
+  if (!choice) {
+    topRankedStock = null;
+    topPickCard.classList.add('border-rose-500/40');
+    if (headline) headline.textContent = 'Do not trade today';
+    topPickName.textContent = 'Buy nothing. Check again tomorrow.';
+    topPickAdvice.textContent = fallbackMessage;
+    topPickReason.innerHTML = '';
+    if (growwBtn) {
+      growwBtn.disabled = true;
+      growwBtn.textContent = 'No order today';
+    }
+    if (!userChoseSymbol) showStandAside(fallbackMessage);
+    return;
+  }
+
+  const { stock, plan, curr } = choice;
+  topRankedStock = stock;
+  topPickCard.classList.add('border-emerald-500/40');
+  const name = cleanSymbol(stock.symbol);
+  if (headline) headline.textContent = `Buy ${plan.shares} shares of ${name}`;
+  topPickName.textContent = stock.shortName || name;
+  topPickSymbol.textContent = stock.symbol;
+  topPickAdvice.textContent = `Buy near ${curr}${stock.currentPrice.toFixed(2)}. Put a stop at ${curr}${stock.stopLoss.toFixed(2)} the same day. First target is ${curr}${stock.target1.toFixed(2)}. If the stop hits, you lose about ${formatMoney(curr, plan.maxLoss)}.`;
   topPickReason.innerHTML = `
-    <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-      <span class="text-[9px] text-slate-400 block font-bold uppercase">Price</span>
-      <span class="font-extrabold text-white text-xs sm:text-sm font-mono">${curr}${topRankedStock.currentPrice.toFixed(2)}</span>
+    <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+      <span class="text-[10px] uppercase font-bold text-slate-500">Buy</span>
+      <div class="text-lg font-black text-white mt-1">${curr}${stock.currentPrice.toFixed(2)}</div>
     </div>
-    <div class="bg-slate-900/80 p-2 rounded-lg border border-rose-500/20">
-      <span class="text-[9px] text-rose-400 block font-bold uppercase">Stop-Loss</span>
-      <span class="font-extrabold text-rose-300 text-xs sm:text-sm font-mono">${curr}${topRankedStock.stopLoss.toFixed(2)} <span class="text-[9px] text-slate-400">(-${topRankedStock.riskPct}%)</span></span>
+    <div class="bg-slate-900 p-3 rounded-xl border border-slate-800">
+      <span class="text-[10px] uppercase font-bold text-slate-500">Shares</span>
+      <div class="text-lg font-black text-white mt-1">${plan.shares}</div>
     </div>
-    <div class="bg-slate-900/80 p-2 rounded-lg border border-emerald-500/20">
-      <span class="text-[9px] text-emerald-400 block font-bold uppercase">Target 1 (1:2)</span>
-      <span class="font-extrabold text-emerald-300 text-xs sm:text-sm font-mono">${curr}${topRankedStock.target1.toFixed(2)} <span class="text-[9px] text-emerald-400">(+${topRankedStock.target1GainPct}%)</span></span>
+    <div class="bg-slate-900 p-3 rounded-xl border border-rose-500/30">
+      <span class="text-[10px] uppercase font-bold text-rose-400">Stop</span>
+      <div class="text-lg font-black text-rose-300 mt-1">${curr}${stock.stopLoss.toFixed(2)}</div>
     </div>
-    <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
-      <span class="text-[9px] text-slate-400 block font-bold uppercase">RSI (14)</span>
-      <span class="font-extrabold text-white text-xs sm:text-sm font-mono">${topRankedStock.rsi} <span class="text-[9px] text-emerald-400 font-normal">Optimal</span></span>
+    <div class="bg-slate-900 p-3 rounded-xl border border-emerald-500/30">
+      <span class="text-[10px] uppercase font-bold text-emerald-400">Target</span>
+      <div class="text-lg font-black text-emerald-300 mt-1">${curr}${stock.target1.toFixed(2)}</div>
     </div>
   `;
+  if (growwBtn) {
+    growwBtn.disabled = false;
+    growwBtn.textContent = 'Copy this order';
+  }
+  if (!userChoseSymbol && currentAnalysis?.symbol !== stock.symbol) {
+    suppressOrderRefresh = true;
+    tickerInput.value = stock.symbol;
+    analyzeTicker(stock.symbol).finally(() => {
+      suppressOrderRefresh = false;
+    });
+  }
+}
+
+function showSearchedOrder(data) {
+  const stock = {
+    symbol: data.symbol,
+    shortName: data.shortName,
+    currentPrice: data.currentPrice,
+    stopLoss: data.setup.suggestedStop,
+    target1: data.setup.target1,
+    action: data.setup.action,
+    actionLabel: data.setup.actionLabel,
+    actionReason: data.setup.actionReason
+  };
+  const curr = stockCurrency(stock.symbol);
+  const plan = planSpend(
+    stock.currentPrice,
+    stock.stopLoss,
+    Number(accountSizeInput.value) || 0,
+    Number(riskPercentVal.value) || 0.5,
+    curr
+  );
+  if (stock.action === 'SPEND' && plan.shares > 0) {
+    paintTodayOrder({ stock, plan, curr }, '');
+    return;
+  }
+  const reason = stock.actionReason || 'This stock is not a buy.';
+  paintTodayOrder(null, `${cleanSymbol(stock.symbol)}: ${reason}`);
+}
+
+function renderScannerUI(data) {
+  latestScanPayload = data;
+  const results = data.results || [];
+  scanCountBadge.textContent = results.length;
+  renderMarketWeather(data.benchmark, data);
+  const choice = chooseReadyTrade(results);
+  const passed = results.filter(stock => stock.action === 'SPEND');
+  let fallback = data.benchmark?.label || 'The market is not safe enough for a new buy.';
+  if (!choice && passed.length) {
+    fallback = 'A stock passed the market check, but your open trades already use the loss budget. Close one trade, then scan again. Until then, buy nothing.';
+  } else if (!choice && results[0]?.actionReason) {
+    fallback = results[0].actionReason;
+  }
+  if (userChoseSymbol && currentAnalysis) showSearchedOrder(currentAnalysis);
+  else paintTodayOrder(choice, fallback);
+
+  if (results.length === 0) return;
 
   // Populate Table
   scannerTbody.innerHTML = '';
@@ -877,12 +1150,10 @@ function renderScannerUI(data) {
     const tr = document.createElement('tr');
     tr.className = 'hover:bg-slate-900/80 transition';
 
-    let gradeBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">GRADE A</span>';
-    if (stock.grade === 'B') {
-      gradeBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">GRADE B</span>';
-    } else if (stock.grade === 'C') {
-      gradeBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">GRADE C</span>';
-    }
+    const chartTone = stock.action === 'SPEND'
+      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+      : 'bg-slate-800 text-slate-400 border-slate-700';
+    const gradeBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-bold border ${chartTone}">Chart ${stock.grade}</span>`;
 
     const sCurr = stock.symbol.endsWith('.NS') ? '₹' : '$';
 
@@ -914,14 +1185,19 @@ function renderScannerUI(data) {
         ${sCurr}${stock.target1.toFixed(2)}
         <span class="text-[10px] text-emerald-500 block">(+${stock.target1GainPct}%)</span>
       </td>
-      <td class="py-2.5 px-3 font-mono text-slate-300 text-xs">${stock.rsi}</td>
+      <td class="py-2.5 px-3 text-[11px] max-w-[220px] ${
+        stock.action === 'SPEND' ? 'text-emerald-300' : stock.action === 'WAIT' ? 'text-amber-300' : 'text-rose-300'
+      }">
+        <div class="font-bold">${stock.action === 'SPEND' ? 'Buy this' : stock.actionLabel || 'Do not buy'}</div>
+        <div class="text-[10px] font-normal text-slate-400 mt-0.5 whitespace-normal leading-snug">${stock.actionReason || ''}</div>
+      </td>
       <td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
-        <button class="scan-load-btn px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/30 text-[11px] font-bold transition" data-symbol="${stock.symbol}">
-          Load
+        <button class="scan-load-btn px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-bold transition" data-symbol="${stock.symbol}">
+          Chart
         </button>
-        <button class="scan-groww-btn px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-[11px] font-bold transition" data-symbol="${stock.symbol}">
-          Groww
-        </button>
+        ${stock.action === 'SPEND'
+          ? `<button class="scan-groww-btn px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition" data-symbol="${stock.symbol}">Order</button>`
+          : '<span class="text-[10px] text-slate-500">No order</span>'}
       </td>
     `;
     scannerTbody.appendChild(tr);
@@ -947,16 +1223,26 @@ function renderScannerUI(data) {
 }
 
 function showGrowwModalForStock(stock) {
-  const accountSize = Number(accountSizeInput.value) || 50000;
-  const riskPct = Number(riskPercentVal.value) || 1.0;
-  const maxAllowedRisk = (accountSize * riskPct) / 100;
-
-  const riskPerShare = stock.currentPrice - stock.stopLoss;
-  const shares = riskPerShare > 0 ? Math.max(1, Math.floor(maxAllowedRisk / riskPerShare)) : 1;
+  if (stock.action && stock.action !== 'SPEND') {
+    const proceed = confirm(`${stock.actionLabel || stock.action}. ${stock.actionReason || ''}\n\nCopy the order text anyway?`);
+    if (!proceed) return;
+  }
+  const curr = stock.symbol.endsWith('.NS') || stock.symbol.endsWith('.BO') ? '₹' : '$';
+  const plan = planSpend(
+    stock.currentPrice,
+    stock.stopLoss,
+    Number(accountSizeInput.value) || 0,
+    Number(riskPercentVal.value) || 0.5,
+    curr
+  );
+  if (plan.shares < 1) {
+    alert(plan.note || 'No safe quantity for this account.');
+    return;
+  }
 
   showGrowwModalForCustom(
     stock,
-    shares,
+    plan.shares,
     stock.currentPrice,
     stock.stopLoss,
     stock.target1,
@@ -988,7 +1274,7 @@ Quantity:     ${shares} Shares
 
 2. GTT STOP-LOSS (Risk Protection):
    Trigger:     ${curr}${stop.toFixed(2)}
-   Max Loss:    -${curr}${maxLoss} (Capped at 1%)
+   Max Loss:    -${curr}${maxLoss} (Risk cap ${riskPercentVal.value}%)
 
 3. GTT TARGET (Profit Booking):
    Target 1:    ${curr}${t1.toFixed(2)} (Gain: +${curr}${profitT1})
